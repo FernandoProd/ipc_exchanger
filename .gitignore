@@ -1,0 +1,36 @@
+# Сборка и артефакты
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+*.cmake
+!CMakeLists.txt
+Makefile
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# Qt-специфичное
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.pro.user
+*.qmake.stash
+
+# IDE (VS Code и другие)
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Логи и временные файлы
+*.log
+tmp/
+
+# Зависимости (если будут)
+vendor/
