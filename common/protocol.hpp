@@ -5,6 +5,8 @@
 #include <vector>
 #include <optional>
 
+namespace ipc {
+namespace protocol {
 
 constexpr uint32_t MAGIC = 0xDEADBEEF;
 constexpr uint32_t MAX_PAYLOAD_SIZE = 1'000'000;
@@ -39,3 +41,53 @@ inline std::vector<uint8_t> packMessage(int64_t timestamp_ms) {
 
 inline std::optional<int64_t>unpackMessage(const std::vector<uint8_t>& buffer) {
 }
+
+inline std::optional<int64_t> unpackMessage(const std::vector<uint8_t>& buffer) {
+    // Минимальная длина: 4 (MAGIC) + 4 (SIZE) + 8 (PAYLOAD)
+    if (buffer.size() < 12) {
+        return std::nullopt;
+    }
+    
+    // Check MAGIC
+    uint32_t magic = 
+        (static_cast<uint32_t>(buffer[0]) << 0) |
+        (static_cast<uint32_t>(buffer[1]) << 8) |
+        (static_cast<uint32_t>(buffer[2]) << 16) |
+        (static_cast<uint32_t>(buffer[3]) << 24);
+    if (magic != MAGIC) {
+        return std::nullopt;  // не наш кадр
+    }
+    
+    // Read SIZE
+    uint32_t size = 
+        (static_cast<uint32_t>(buffer[4]) << 0) |
+        (static_cast<uint32_t>(buffer[5]) << 8) |
+        (static_cast<uint32_t>(buffer[6]) << 16) |
+        (static_cast<uint32_t>(buffer[7]) << 24);
+    
+    // Ceck limit
+    if (size > MAX_PAYLOAD_SIZE) {
+        return std::nullopt;
+    }
+    
+    // check that buffer size is big enough
+    if (buffer.size() < 8 + size) {
+        return std::nullopt;
+    }
+    
+    
+    if (size != 8) {
+        return std::nullopt;  
+    }
+    
+    // Keep timestamp (little-endian)
+    int64_t timestamp = 0;
+    for (int i = 0; i < 8; ++i) {
+        timestamp |= (static_cast<int64_t>(buffer[8 + i]) << (i * 8));
+    }
+    
+    return timestamp;
+}
+
+}  
+} 
