@@ -29,7 +29,7 @@
 
 using boost::asio::ip::tcp;
 
-
+// async client for connect to server and send some data
 class Sender : public std::enable_shared_from_this<Sender> {
 public:
     explicit Sender(boost::asio::io_context& io) // ??? explicit, how it works
@@ -46,10 +46,11 @@ private:
     boost::asio::steady_timer timer_;      // timer for periodic sending
     std::vector<uint8_t> send_buffer_;     // buffer for sending
 
+    // setting TCP-connection with server with auto retries if it'll have fails
     void do_connect() {
         // create endpoint
         std::string ip = "127.0.0.1";
-        unsigned short port = 12345;  // unsigned short WTF??
+        unsigned short port = 12345;  // unsigned short WTF?? It is standard type of port 
         boost::system::error_code ec;
         auto endpoint = tcp::endpoint(boost::asio::ip::make_address(ip, ec), port);
         if (ec) {
@@ -80,9 +81,24 @@ private:
 
     }
 
-    // seting timer for periodic data sending 
+    // setting timer for periodic data sending 
     void schedule_send() {
+        // Setting timer for a one second
+        timer_.expires_after(std::chrono::seconds(1));
 
+        // async waiting for timer trigger
+        timer_.async_wait([self = shared_from_this()](boost::system::error_code ec) {
+            // If timer was cancel, it will be ignore
+            if (ec == boost::asio::error::operation_aborted) {
+                return;
+            }
+            // if other errors did not happened, we'll call data sending
+            if (!ec) {
+                self->do_write();
+            } else {
+                std::cerr << "Timer error in schedule_send: " << ec.message() << std::endl;
+            }
+        });
     }
 
 };
