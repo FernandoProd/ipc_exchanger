@@ -8,7 +8,7 @@
 namespace ipc {
 namespace protocol {
 
-constexpr uint32_t MAGIC = 0xDEADBEEF;
+constexpr uint32_t MAGIC = 0xDEADBEEF;   // This value calculated in compilation time and doesnt keep in memory
 constexpr uint32_t MAX_PAYLOAD_SIZE = 1'000'000;
 
 inline std::vector<uint8_t> packMessage(int64_t timestamp_ms) {
@@ -39,11 +39,8 @@ inline std::vector<uint8_t> packMessage(int64_t timestamp_ms) {
 }
 
 
-inline std::optional<int64_t>unpackMessage(const std::vector<uint8_t>& buffer) {
-}
-
 inline std::optional<int64_t> unpackMessage(const std::vector<uint8_t>& buffer) {
-    // Минимальная длина: 4 (MAGIC) + 4 (SIZE) + 8 (PAYLOAD)
+    // Mimimal length: 4 (MAGIC) + 4 (SIZE) + 8 (PAYLOAD)
     if (buffer.size() < 12) {
         return std::nullopt;
     }
@@ -55,7 +52,7 @@ inline std::optional<int64_t> unpackMessage(const std::vector<uint8_t>& buffer) 
         (static_cast<uint32_t>(buffer[2]) << 16) |
         (static_cast<uint32_t>(buffer[3]) << 24);
     if (magic != MAGIC) {
-        return std::nullopt;  // не наш кадр
+        return std::nullopt;  // not ours frame
     }
     
     // Read SIZE

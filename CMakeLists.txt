@@ -18,3 +18,5 @@ target_link_libraries(sender PRIVATE Boost::system)
 # App B - Receiver (GUI) (We're building a receiver as well)
 add_executable(receiver receiver/main.cpp)
 target_link_libraries(receiver PRIVATE Qt5::Core Qt5::Widgets Qt5::Network)
+
+include_directories(${CMAKE_SOURCE_DIR}/common)
