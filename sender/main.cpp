@@ -78,7 +78,43 @@ private:
     }
 
     void do_write() {
+        // get the current time
+        auto now = std::chrono::system_clock::now();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 
+        // Формируем пакет через гипотетическую функцию packMessage
+        // возвращает std::vector<uint8_t> или что-то подобное
+        send_buffer_ = ipc::protocol::packMessage(ms);
+
+        // Асинхронная запись с захватом shared_ptr
+        auto self = shared_from_this();  // важно: продлеваем жизнь объекта
+        boost::asio::async_write(socket_, boost::asio::buffer(send_buffer_),
+            [self](boost::system::error_code ec, size_t /*bytes*/) {
+                if (!ec) {
+                    // Получаем текущее время в ISO-формате для вывода
+                    auto now_iso = std::chrono::system_clock::now();
+                    std::time_t tt = std::chrono::system_clock::to_time_t(now_iso);
+                    std::string iso_str = std::ctime(&tt);
+                    iso_str.pop_back(); // убираем '\n'
+                    std::cout << "Sent timestamp: " << iso_str << std::endl;
+
+                    // Планируем следующую отправку
+                    self->schedule_send();
+                } else {
+                    std::cerr << "Write error: " << ec.message() << std::endl;
+                    // Закрываем сокет (игнорируем возможную ошибку)
+                    boost::system::error_code ignored;
+                    self->socket_.close(ignored);
+
+                    // Ждём 2 секунды и переподключаемся
+                    self->timer_.expires_after(std::chrono::seconds(2));
+                    self->timer_.async_wait([self](boost::system::error_code ec) {
+                        if (!ec) {
+                            self->do_connect();
+                        }
+                    });
+                }
+            });
     }
 
     // setting timer for periodic data sending 
