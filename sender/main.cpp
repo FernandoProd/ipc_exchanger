@@ -4,7 +4,21 @@
 #include <memory>
 #include <vector>
 #include "protocol.hpp"
+#include <iomanip>
 
+// function for formated time to ISO-8601
+// all code about formated time was stolen from LLM
+static std::string format_iso8601(int64_t ms) {
+    using namespace std::chrono;
+    auto tp = system_clock::time_point(milliseconds(ms));
+    std::time_t tt = system_clock::to_time_t(tp);
+    auto millis = ms % 1000;
+    std::tm tm = *std::gmtime(&tt);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S")
+        << '.' << std::setfill('0') << std::setw(3) << millis << 'Z';
+    return oss.str();
+}
 
 // int main() {
 //     using namespace ipc::protocol; // need for us for using our ipc::protocol:functions without prefix ipc::protocol in this area
@@ -82,31 +96,34 @@ private:
         auto now = std::chrono::system_clock::now();
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 
-        // Формируем пакет через гипотетическую функцию packMessage
-        // возвращает std::vector<uint8_t> или что-то подобное
+        // forming package with packMessage
+        // return std::vector<uint8_t> 
         send_buffer_ = ipc::protocol::packMessage(ms);
 
-        // Асинхронная запись с захватом shared_ptr
+        // async writing with catching shared_ptr
         auto self = shared_from_this();  // важно: продлеваем жизнь объекта
         boost::asio::async_write(socket_, boost::asio::buffer(send_buffer_),
-            [self](boost::system::error_code ec, size_t /*bytes*/) {
+            [self, ms](boost::system::error_code ec, size_t /*bytes*/) {
                 if (!ec) {
-                    // Получаем текущее время в ISO-формате для вывода
-                    auto now_iso = std::chrono::system_clock::now();
-                    std::time_t tt = std::chrono::system_clock::to_time_t(now_iso);
-                    std::string iso_str = std::ctime(&tt);
-                    iso_str.pop_back(); // убираем '\n'
-                    std::cout << "Sent timestamp: " << iso_str << std::endl;
+                    // gettting current iso time for out 
+                    std::cout << "Sent timestamp: " << format_iso8601(ms) << std::endl;
+                    // auto now_iso = std::chrono::system_clock::now();
+                    // std::time_t tt = std::chrono::system_clock::to_time_t(now_iso);
+                    // std::string iso_str = std::ctime(&tt);
+                    // iso_str.pop_back(); // убираем '\n'
+                    // std::cout << "Sent timestamp: " << iso_str << std::endl;
 
-                    // Планируем следующую отправку
+                    // planning next send
                     self->schedule_send();
                 } else {
                     std::cerr << "Write error: " << ec.message() << std::endl;
-                    // Закрываем сокет (игнорируем возможную ошибку)
+                    // Closing socket and ignore error
                     boost::system::error_code ignored;
+                    // canceling our planning send
+                    self->timer_.cancel(ignored);
                     self->socket_.close(ignored);
 
-                    // Ждём 2 секунды и переподключаемся
+                    // Waiting for 2 second and reconnecting 
                     self->timer_.expires_after(std::chrono::seconds(2));
                     self->timer_.async_wait([self](boost::system::error_code ec) {
                         if (!ec) {
@@ -133,8 +150,18 @@ private:
                 self->do_write();
             } else {
                 std::cerr << "Timer error in schedule_send: " << ec.message() << std::endl;
+                self->do_connect();
             }
         });
     }
 
 };
+
+
+int main() {
+    boost::asio::io_context io;
+    auto sender = std::make_shared<Sender>(io);
+    sender->start();
+    io.run();
+    return 0;
+}
