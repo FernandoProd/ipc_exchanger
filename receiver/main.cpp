@@ -41,6 +41,18 @@ private:
 };
 
 
+class MainWindow : public QMainWindow {
+    Q_OBJECT
+public:
+    explicit MainWindow(QWidget *parent = nullptr)
+        : QMainWindow(parent)
+        , message_count_(0)
+    {
+
+    }
+
+}
+
 
 
 

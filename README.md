@@ -13,3 +13,8 @@ We have three main structures for packing messages: [ MAGIC (4 bytes) ][ SIZE (4
  - `MAGIC`
  - `SIZE`
  - `PAYLOAD`
+
+ ### QMainWindow documentation:
+ - https://doc.qt.io/qt-6/qmainwindow.html
+
+ ![alt text](image.png)
