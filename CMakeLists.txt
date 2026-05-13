@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(IPCExchanger LANGUAGES CXX)
 
+# Because #include "receiver.moc"  did not work
+set(CMAKE_AUTOMOC ON)
 # It just for seting basic requirements for compilation
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

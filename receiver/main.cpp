@@ -1,5 +1,17 @@
 #include <QApplication>
 #include <QMainWindow>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QStatusBar>
+#include <QTimer>
+#include <QDateTime>
+#include <QDebug>
+#include <QObject>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <vector>
+#include <QByteArray>
+#include "protocol.hpp"
 
 
 
@@ -69,6 +81,34 @@ public:
         updateLocalTime();
 
         // network receiver
+        network_ = new NetworkReceiver(this);
+        // tying between signal network_ and updating GUI
+        connect(network_, &NetworkReceiver::connected, this, [this]() {
+            statusBar()->showMessage(QString("Connected, messages: %1").arg(message_count_));
+        });
+        connect(network_, &NetworkReceiver::disconnected, this, [this]() {
+            label_received_->setText("Received time from Sender: ---");
+            statusBar()->showMessage(QString("Not connected, messages: %1").arg(message_count_));
+        });
+        connect(network_, &NetworkReceiver::messageReceived, this, [this](QDateTime timestamp) {
+            label_received_->setText("Received time from Sender: " +
+                                     timestamp.toString("yyyy-MM-dd hh:mm:ss.zzz"));
+            ++message_count_;
+            statusBar()->showMessage(QString("Connected, messages: %1").arg(message_count_));
+        });
+        connect(network_, &NetworkReceiver::errorOccurred, this, [this](QString desc) {
+            statusBar()->showMessage("Error: " + desc);
+        });
+
+        
+        // connect(network_, &NetworkReceiver::connected, this, [this]() { }
+        // network_ - the object that sending a signal
+        // &NetworkReceiver::connected - which signal, "connected" is a signal 
+        // this - the object (mainwindow) its like self in python classes
+        // [this]() {} - labnda function (processor)
+
+        // connect means: when event A is happened do event B
+
 
         // "new QTimer" give a life for object (keeping in dynamic memory) unlike just "QWidget central(this)""
 
@@ -76,18 +116,28 @@ public:
 
 private slots:
     void updateLocalTime() {
-
+        label_local_->setText("Моё локальное время: " +
+            QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz"));
     }    
 
 private:
     QLabel *label_received_;
     QLabel *label_local_;
-    // NetworkReceiver *network_;
-    // int message_count_;
+    NetworkReceiver *network_;
+    int message_count_;
+};
+
+
+int main(int argc, char *argv[]) {
+    QApplication app(argc, argv);
+    MainWindow w;
+    w.setWindowTitle("Receiver");
+    w.resize(500, 200);
+    w.show();
+    return app.exec();
 }
 
-
-
+#include "main.moc"
 
 // int main(int argc, char *argv[]) {
 //     QApplication app(argc, argv);
