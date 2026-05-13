@@ -42,9 +42,65 @@ signals: // what are the slots and the signals??!
     void errorOccurred(QString description);
 
 private slots:
-    void onNewConnection() { /* TODO */ }
-    void onReadyRead() { /* TODO */ }
-    void onDisconnected() { /* TODO */ }
+    void onNewConnection() {
+        // if socket is open, we will close it care
+        if (client_socket_) {
+            client_socket_->close();
+            client_socket_->deleteLater();
+            client_socket_ = nullptr;
+        }
+        // nextPrndingConnection() returns socket
+        client_socket_ = server_->nextPendingConnection();
+        if (!client_socket_) return;
+
+        // connect signals to slots
+        connect(client_socket_, &QTcpSocket::readyRead, // how connect() works?
+            this, &NetworkReceiver::onReadyRead);
+        connect(client_socket_, &QTcpSocket::disconnected,
+            this, &NetworkReceiver::onDisconnected);
+        
+        buffer_.clear();
+        
+        // tells GUI that connection was realized
+        emit connected();
+    }
+    void onReadyRead() { 
+        if (!client_socket_) return;
+        
+        // appending all available data into the buffer
+        // reading all bytes there are in socket now (must be 16 bytes)
+        buffer_.append(client_socket_->readAll());
+
+        while (buffer_.size() >= 16) {
+            // Copy first packet with 16 bytes in std::vector for unpackMessage
+            std::vector<uint8_t> frame(16);
+            std::copy(buffer_.begin(), buffer_.begin() + 16, frame.begin());
+
+            auto timestamp = ipc::protocol::unpackMessage(frame);
+            if (timestamp) {
+                // unpacking was succesfully
+                QDateTime dt = QDateTime::fromMSecsSinceEpoch(*timestamp, Qt::UTC);
+                emit messageReceived(dt);   // sending to GUI
+
+                // delete processed frame from buffer
+                buffer_.remove(0, 16);
+            } else {
+                // protocol error (wrong MAGIC or SIZE)
+                emit errorOccurred("Frame was no valid, reconnecting");
+                client_socket_->close();
+                break;   // going away from cycle and then connection will be closed 
+            }
+        }
+        // if len(buffer) <= 16 then waiting for it
+     }
+    void onDisconnected() { 
+        if (client_socket_) {
+            client_socket_->deleteLater();
+            client_socket_ = nullptr;
+        }
+        buffer_.clear();
+        emit disconnected();
+     }
 
 private:
     QTcpServer *server_;
@@ -70,6 +126,35 @@ public:
         layout->addWidget(label_local_);
         central->setLayout(layout); // setting our "central" with layouts rules
         setCentralWidget(central); // put "central" in the center of our window
+        
+        
+        /// for beautiful view
+        QString bgPath = "/home/dmitry/Projects/Cpp_Projects/ipc_exchanger/background.jpg";
+
+        central->setStyleSheet(
+        QString("border-image: url(%1) 0 0 0 0 stretch stretch;"
+                "background-color: transparent;")
+            .arg(bgPath));
+
+        label_received_->setStyleSheet(
+            "color: white;"
+            "background-color: rgba(0, 0, 0, 0.5);"
+            "padding: 5px;"
+            "border-radius: 3px;"
+            "border-image: none;"
+        );
+        label_received_->setAttribute(Qt::WA_StyledBackground, true); 
+
+        label_local_->setStyleSheet(
+            "color: white;"
+            "background-color: rgba(0, 0, 0, 0.5);"
+            "padding: 5px;"
+            "border-radius: 3px;"
+            "border-image: none;"
+        );
+        label_local_->setAttribute(Qt::WA_StyledBackground, true); 
+        ///
+
 
         // status bar
         statusBar()->showMessage("Not connected, messages: 0");
